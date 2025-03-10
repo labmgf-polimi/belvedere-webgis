@@ -1,0 +1,955 @@
+
+<!-- 
+    =====================================================================
+    Belvedere Glacier WebGIS - Home Page
+    =====================================================================
+    
+    This HTML file serves as the main entry point for the WebGIS platform 
+    designed for the visualization and analysis of Belvedere Glacier monitoring data.
+
+    Key Features:
+    - 3D Visualization: Uses CesiumJS to render an interactive 3D map.
+    - Measurement Points: Displays fixed and moving points with different colors.
+    - Interactive Graphs: Allows users to explore survey data using Plotly charts.
+    - Filtering and Exporting: Users can filter data by year and download reports in PDF.
+    - User-Friendly Interface: Includes legends, tooltips, and control widgets.
+
+    =====================================================================
+ -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - Belvedere Glacier WebGIS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400&display=swap" rel="stylesheet">
+    {% load static %}
+    <link href="{% static 'cesium/Build/Cesium/Widgets/widgets.css' %}" rel="stylesheet">
+    <script src="{% static 'cesium/Build/Cesium/Cesium.js' %}"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.21/jspdf.plugin.autotable.min.js"></script>  
+    <script src="{% static 'js/logo.js' %}"></script>  
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+            background-color: #00172d;
+        }
+        #titleContainer {
+            position: absolute;
+            top: 25px;
+            left: 20px;
+            background-color: rgba(0, 29, 61, 0.75);
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-family: 'Poppins', sans-serif;
+            z-index: 1000;
+        }
+        #titleContainer .title {
+            font-size: 25px;
+            color: white;
+            margin: 0;
+            font-weight: normal;
+        }
+        #cesiumContainer {
+            width: 100%;
+            height: 100vh;
+            background-color: #001d3d;
+            position: absolute; /* per assicurare il posizionamento corretto */
+            top: 0;
+            left: 0;
+            margin: 0;           /* rimuove i margini esterni */
+            padding: 0;          /* rimuove i padding interni */
+            box-sizing: border-box; /* include il bordo nelle dimensioni */
+        }
+        .cesium-baseLayerPicker-dropDown {
+            z-index: 1000;
+        }
+        .cesium-sceneModePicker-wrapper {
+            z-index: 1000;
+        }
+        .cesium-navigation-help {
+            z-index: 1000;
+        }
+        #chartContainer {
+            display: none;                          /* non visibile inizialmente */
+            position: fixed;                        /* posizionamento fisso */
+            top: 50%;                               /* centrato verticalmente */
+            left: 50%;                              /* centrato orizzontalmente */
+            transform: translate(-50%, -50%);       /* centraggio */
+            width: 80vw;                            /* larghezza relativa */
+            height: 80vh;                           /* altezza relativa */
+            max-width: 700px;                       /* larghezza massima */
+            max-height: 700px;                      /* altezza massima */
+            background-color: #ffffff;              /* colore di sfondo */
+            z-index: 3;                             /* sopra gli altri elementi */
+            border: 3px solid #001d3d;              /* bordo scuro */
+            border-radius: 10px;                    /* bordi arrotondati */
+            box-sizing: border-box;                 /* include padding e bordo */
+        }
+        .chart {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #001d3d;
+            border-radius: 5px;
+            overflow: hidden;
+        }  
+        #closeButton {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 18px;
+            color: black;
+            cursor: pointer;
+            z-index: 9999;
+        }
+        #dataSelector {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 16px;
+            padding: 5px;
+            background-color: #f8f9fa;
+            color: #001d3d;
+            border: 1px solid #001d3d;
+            border-radius: 5px;
+            outline: none;
+            font-family: 'Poppins';
+            z-index: 1000;
+        }
+        #legend {
+            position: absolute;
+            top: 180px;
+            left: 20px;
+            background-color: rgba(0, 29, 61, 0.75);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-family: 'Poppins', sans-serif;
+            z-index: 100;
+        }
+        #legend .legend-title {
+            font-size: 15px;
+            color: white;
+            margin-bottom: 5px;
+            font-weight: normal;
+        }
+        #legend div {
+            font-size: 13px;
+            color: white;
+            margin-bottom: 5px;
+        }
+        .legend-color {
+            width: 11px;
+            height: 11px;
+            margin-right: 8px;
+            border: 1px solid #001d3d;
+            border-radius: 50%;
+            display: inline-block;
+        }   
+        #goToGlacier {
+            position: absolute;
+            bottom: 50px;
+            right: 20px;
+            background-color: rgba(0, 29, 61, 0.75);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-family: 'Poppins', sans-serif;
+            color: white;
+            text-align: center;
+            cursor: pointer;
+            z-index: 100;
+            font-size: 13px;
+        }
+        #goToGlacier:hover {
+            background-color: rgba(0, 29, 61, 0.75);
+        }
+        #goToGlacier img {
+            height: 13px;
+            margin-right: 6px;
+            vertical-align: middle;
+            filter: brightness(0) invert(1);
+        }
+        /* Widget di controllo (filtri e download) aggiornato: più largo */
+        #controlWidget {
+            position: absolute;
+            top: 180px;
+            right: 20px;
+            background-color: rgba(0, 29, 61, 0.75);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-family: 'Poppins', sans-serif;
+            color: white;
+            z-index: 100;
+            font-size: 13px;
+            /* Larghezza aumentata per avere più spazio */
+            width: 200px;
+            margin-bottom: 10px;
+        }
+        #controlWidget .control-title {
+            font-size: 15px;
+            margin-bottom: 5px;
+        }
+        /* Stile aggiornato per i menu a tendina (select) nel widget: arrotondati e dark blue */
+        #controlWidget select {
+            width: 100%;
+            margin-bottom: 5px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+            padding: 5px;
+            background-color: rgba(0, 29, 61, 0.75);
+            color: #f8f9fa;
+            border: 1px solid #f8f9fa;
+            border-radius: 5px;
+            outline: none;
+        }
+        /* Stile per le checkbox (facoltativo) */
+        #controlWidget input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        #controlWidget .control-row {
+        margin-bottom: 10px; /* aumentato da 8px a 12px */
+        }
+        .widget-button:hover {
+            background-color: rgba(0, 29, 61, 1);
+        }
+        #downloadButton:disabled {
+            background-color: rgba(255, 255, 255, 0.3);
+            color: #aaa;
+            cursor: not-allowed;
+        }       
+        #uploadWidget {
+            position: absolute;
+            top: 410px;
+            right: 20px;
+            background-color: rgba(0, 29, 61, 0.75);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-family: 'Poppins', sans-serif;
+            color: white;
+            z-index: 100;
+            font-size: 13px;
+            width: 200px;
+            margin-top: 10px;
+        }
+        .widget-title {
+            font-size: 15px;
+            font-weight: normal;
+            margin-bottom: 5px;
+        }
+        .widget-row {
+            margin-bottom: 10px;
+        }
+        .widget-box select {
+            width: 100%;
+            margin-bottom: 5px;
+            font-size: 13px;
+            padding: 5px;
+            background-color: rgba(0, 29, 61, 0.9);
+            color: #f8f9fa;
+            border: 1px solid #f8f9fa;
+            border-radius: 5px;
+            outline: none;
+        }
+        .widget-button {
+            width: 100%;
+            padding: 8px;
+            background-color: rgba(0, 29, 61, 0.9); /* Blu scuro */
+            color: white;
+            border: 1px solid #f8f9fa;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: normal;
+            font-family: 'Poppins', sans-serif;
+            transition: 0.3s;
+        }
+        .widget-button:hover {
+            background-color: rgba(0, 29, 61, 1);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="titleContainer">
+        <div class="title">Belvedere Glacier WebGIS</div>
+    </div>
+    <div id="cesiumContainer"></div>
+    <div id="chartContainer">
+        <div id="closeButton">&times;</div>
+        <select id="dataSelector">
+            <option value="east">East</option>
+            <option value="north">North</option>
+            <option value="h">H</option>
+            <option value="displacement">Displacement</option>
+            <option value="velocity">Velocity</option>
+            <option value="acceleration">Acceleration</option>
+        </select>
+        <div id="plotlyChart" class="chart"></div>
+    </div>
+    <div id="legend">
+        <div class="legend-title">Legend</div>
+        <div>
+            <span class="legend-color" style="background-color: #FFBA08;"></span> Fixed point
+        </div>
+        <div>
+            <span class="legend-color" style="background-color: blue;"></span> Moving point (first survey)
+        </div>
+        <div>
+            <span class="legend-color" style="background-color: lightblue; opacity: 0.5;"></span> Moving point (subsequent surveys)
+        </div>
+    </div>
+    
+    <!-- Nuovo widget di controllo per filtri e download -->
+    <div id="controlWidget">
+        <div class="control-title">Filter & Download Data</div>
+        <div class="control-row">
+            <label for="yearFilter">Year: </label>
+            <select id="yearFilter">
+                <option value="all">All</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <input type="checkbox" id="fixedFilter" checked>
+            <label for="fixedFilter">Fixed points</label>
+        </div>
+        <div class="control-row">
+            <input type="checkbox" id="movingFilter" checked>
+            <label for="movingFilter">Moving points</label>
+        </div>
+        <div class="control-row">
+            <button id="downloadButton" class="widget-button" disabled>
+                Download PDF
+            </button>
+        </div>     
+    </div>
+
+    <div id="uploadWidget" class="widget-box">
+        <div class="widget-title">Upload Data</div>
+        <div class="widget-row">
+            <button id="uploadButton" class="widget-button" onclick="window.open('/belvedereapp/upload/', '_blank');">
+                Upload CSV
+            </button>                                        
+        </div>
+    </div>
+
+    <div id="goToGlacier">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Man_walking_icon_1410105361.svg/534px-Man_walking_icon_1410105361.svg.png" alt="Icon">
+        Go to Belvedere Glacier
+    </div>
+ 
+    <script>
+        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJiZmUxYmMyYy1hNDBmLTQ2NGYtYWM3Ni1kMjRiYzlhZjgxOWIiLCJpZCI6MjcyNzk5LCJpYXQiOjE3Mzg0NTAwODV9.7NmvR84fDgRIqYwFwRvjBEhCRpVOpUc6A0s8FxMzEbo'; // sostituisci con il tuo token
+
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            imageryProvider: new Cesium.IonImageryProvider(),
+            timeline: false,
+            animation: false
+        });
+    
+        const measurementsData = JSON.parse('{{ measurements_data|escapejs }}');
+
+        // Event listener per il dropdown "yearFilter": applica i filtri e abilita/disabilita il download
+        document.getElementById("yearFilter").addEventListener("change", function() {
+            applyFilters();
+            const selectedYear = this.value;
+            const downloadButton = document.getElementById("downloadButton");
+            if (selectedYear !== "all") {
+                downloadButton.disabled = false;
+            } else {
+                downloadButton.disabled = true;
+            }
+        });
+
+        function createDynamicPlotlyChart(pointLabel) {
+            const measurementData = measurementsData.filter(m => m.label_title === pointLabel);
+            measurementData.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const epochs = measurementData.map(m => new Date(m.date));
+            const formattedDates = measurementData.map(m => {
+                const date = new Date(m.date);
+                const year = date.getFullYear();
+                const dateText = m.is_average ? `${year}*` : date.toLocaleDateString('en-GB');
+                return dateText;
+            });
+
+            function formatNumber(num) {
+                num = parseFloat(num);
+                if (Math.abs(num) < 0.001) {
+                    return num.toFixed(7);
+                } else {
+                    return num;
+                }
+            }
+
+            const eastValues = measurementData.map(m => m.east);
+            const northValues = measurementData.map(m => m.north);
+            const hValues = measurementData.map(m => m.h);
+            const dValues = measurementData.map(m => m.d).slice(1);
+            const vValues = measurementData.map(m => formatNumber(m.v)).slice(1);
+            const aValues = measurementData.map(m => formatNumber(m.a)).slice(1);
+            const trimmedEpochs = epochs.slice(1);
+
+            const traces = {
+                east: {
+                    x: epochs,
+                    y: eastValues,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'East',
+                    line: { color: '#D00000' },
+                    marker: { size: 8 },
+                },
+                north: {
+                    x: epochs,
+                    y: northValues,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'North',
+                    line: { color: '#136F63' },
+                    marker: { size: 8 },
+                },
+                h: {
+                    x: epochs,
+                    y: hValues,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'H',
+                    line: { color: '#3F88C5' },
+                    marker: { size: 8 },
+                },
+                displacement: {
+                    x: trimmedEpochs,
+                    y: dValues,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Displacement',
+                    line: { color: '#FFA500' },
+                    marker: { size: 8 },
+                },
+                velocity: {
+                    x: trimmedEpochs,
+                    y: vValues,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Velocity',
+                    line: { color: '#32CD32' },
+                    marker: { size: 8 },
+                },
+                acceleration: {
+                    x: trimmedEpochs,
+                    y: aValues,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Acceleration',
+                    line: { color: '#FF1493' },
+                    marker: { size: 8 },
+                },
+            };
+
+            const layout = (title, pointLabel) => {
+                let yAxisUnit = "";
+                let yAxisTickFormat = "";
+                let yAxisExponentFormat = "";
+
+                if (title.toLowerCase().includes("velocity")) {
+                    yAxisUnit = " m/day";
+                    yAxisExponentFormat = "none";
+                } else if (title.toLowerCase().includes("acceleration")) {
+                    yAxisUnit = " m/day²";
+                    yAxisExponentFormat = "power";
+                } else if (["east", "north", "h", "d"].some(metric => title.toLowerCase().includes(metric))) {
+                    yAxisUnit = " m";
+                    yAxisTickFormat = "'";
+                }
+
+                return {
+                    title: {
+                        text: `Point ${pointLabel} - ${title}`,
+                        font: { family: 'Poppins', size: 20, color: '#001d3d', weight: 'bold' },
+                        y: 0.91,
+                    },
+                    plot_bgcolor: "f8f9fa",
+                    paper_bgcolor: "f8f9fa",
+                    xaxis: {
+                        ticktext: formattedDates,
+                        tickvals: epochs,
+                        tickfont: { family: 'Poppins', size: 11, color: '#001d3d' },
+                        tickangle: 25,
+                        gridcolor: '#001d3d',
+                    },
+                    yaxis: {
+                        title: '',
+                        tickfont: { family: 'Poppins', size: 12, color: '#001d3d' },
+                        gridcolor: '#001d3d',
+                        tickformat: yAxisTickFormat,
+                        ticksuffix: yAxisUnit,
+                        exponentformat: yAxisExponentFormat,
+                        separatethousands: false
+                    },
+                    margin: {
+                        l: 120,
+                        r: 80,
+                        t: 85,
+                        b: 90,
+                    },
+                    responsive: true,
+                    annotations: [
+                        {
+                            text: "Note: years marked with an asterisk (*) denote average values of East, North and H",
+                            xref: "paper",
+                            yref: "paper",
+                            x: 0.05,
+                            y: -0.165,
+                            showarrow: false,
+                            font: { family: 'Poppins', size: 12, color: "#001d3d" },
+                            align: "center",
+                        },
+                    ],
+                    font: { family: 'Poppins', color: '#001d3d' }
+                };
+            };
+
+            const chartContainer = document.getElementById('chartContainer');
+            const plotlyChart = document.getElementById('plotlyChart');
+            const dataSelector = document.getElementById('dataSelector');
+
+            const updateChart = (selectedData) => {
+                Plotly.newPlot(plotlyChart, [traces[selectedData]], layout(selectedData.toUpperCase(), pointLabel));
+            };
+
+            dataSelector.addEventListener('change', (e) => {
+                updateChart(e.target.value);
+            });
+
+            updateChart('east');
+            chartContainer.style.display = 'block';
+
+            setTimeout(() => {
+                Plotly.Plots.resize(plotlyChart);
+            }, 100);
+        }
+
+        const groupedMeasurements = {};
+        measurementsData.forEach(measurement => {
+            if (!groupedMeasurements[measurement.label_title]) {
+                groupedMeasurements[measurement.label_title] = [];
+            }
+            groupedMeasurements[measurement.label_title].push(measurement);
+        });
+
+        Object.keys(groupedMeasurements).forEach(label_title => {
+            const measurements = groupedMeasurements[label_title];
+            measurements.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            measurements.forEach((measurement, index) => {
+                const pointColor = measurement.is_fixed
+                    ? Cesium.Color.fromCssColorString("#FFBA08") 
+                    : (index === 0
+                        ? Cesium.Color.BLUE
+                        : Cesium.Color.fromAlpha(Cesium.Color.LIGHTBLUE, 0.5));
+
+                measurement.color = pointColor;
+
+                viewer.entities.add({
+                    name: `Misurazione del ${measurement.date}`,
+                    position: Cesium.Cartesian3.fromDegrees(measurement.lon, measurement.lat, measurement.alt || 0),
+                    point: {
+                        pixelSize: 8,
+                        color: pointColor,
+                        outlineColor: Cesium.Color.BLACK,
+                        outlineWidth: 1,
+                    },
+                    label: {
+                        text: measurement.label, // testo iniziale della label
+                        font: '18px Helvetica',
+                        fillColor: Cesium.Color.WHITE,
+                        outlineColor: Cesium.Color.BLACK,
+                        outlineWidth: 4,
+                        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                        horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+                        pixelOffset: new Cesium.Cartesian2(0, -20),
+                        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                        scale: window.devicePixelRatio || 2,
+                        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 2000000.0),
+                        scaleByDistance: new Cesium.NearFarScalar(0.0, 1.5, 2000.0, 0.5),
+                    },
+                    properties: {
+                        east: measurement.east,
+                        north: measurement.north,
+                        h: measurement.h,
+                        id: measurement.id,
+                        survey_year: measurement.survey_year,
+                        label: measurement.label_title, // usato per raggruppare le entity
+                        is_fixed: measurement.is_fixed,
+                        originalLabel: measurement.label_title, // valore originale del punto
+                    },
+                });
+            });
+        });
+
+        viewer.screenSpaceEventHandler.setInputAction(function (movement) {
+            const pickedObject = viewer.scene.pick(movement.position);
+            if (Cesium.defined(pickedObject)) {
+                const entity = pickedObject.id;
+                if (entity && entity.properties) {
+                    const isFixed = entity.properties.is_fixed.getValue ? entity.properties.is_fixed.getValue() : entity.properties.is_fixed;
+                    if (!isFixed) {  // Se il punto non è fixed, mostra il grafico
+                        const label = entity.properties.label.getValue();
+                        createDynamicPlotlyChart(label);
+                    }
+                }
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+        viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(7.917308385411399, 45.95551787452035, 6500),
+        });
+
+        document.getElementById('goToGlacier').addEventListener('click', () => {
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(7.917308385411399, 45.95551787452035, 6500),
+            });
+        });
+
+        document.getElementById('closeButton').addEventListener('click', () => {
+            document.getElementById('chartContainer').style.display = 'none';
+            document.getElementById('dataSelector').value = 'east';
+        });
+        
+        // Funzione per aggiornare lo stato del pulsante di download
+        function updateDownloadButtonState() {
+            const selectedYear = document.getElementById("yearFilter").value;
+            const movingChecked = document.getElementById("movingFilter").checked;
+            const downloadButton = document.getElementById("downloadButton");
+            // Abilita il download solo se viene selezionato un anno specifico (non "all")
+            // e se la checkbox dei moving points è selezionata.
+            if (selectedYear !== "all" && movingChecked) {
+                downloadButton.disabled = false;
+            } else {
+                downloadButton.disabled = true;
+            }
+        }
+
+
+        // Popola il dropdown degli anni utilizzando i dati originali (measurementsData)
+        function populateYearFilter() {
+            const yearFilter = document.getElementById("yearFilter");
+            const yearsSet = new Set();
+            measurementsData.forEach(m => {
+                yearsSet.add(m.survey_year);
+            });
+            const years = Array.from(yearsSet).sort((a, b) => a - b);
+            years.forEach(year => {
+                const option = document.createElement("option");
+                option.value = year;
+                option.textContent = year;
+                yearFilter.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const yearFilter = document.getElementById("yearFilter").value;
+            const showFixed = document.getElementById("fixedFilter").checked;
+            const showMoving = document.getElementById("movingFilter").checked;
+            
+            // Applica i filtri di visibilità per ogni entity
+            viewer.entities.values.forEach(entity => {
+                if (entity.properties && entity.properties.survey_year !== undefined && entity.properties.is_fixed !== undefined) {
+                    const entityYear = Number(
+                        entity.properties.survey_year.getValue ? entity.properties.survey_year.getValue() : entity.properties.survey_year
+                    );
+                    const isFixed = Boolean(
+                        entity.properties.is_fixed.getValue ? entity.properties.is_fixed.getValue() : entity.properties.is_fixed
+                    );
+                    let visible = true;
+                    if (yearFilter !== "all" && Number(yearFilter) !== entityYear) {
+                        visible = false;
+                    }
+                    if (isFixed && !showFixed) {
+                        visible = false;
+                    }
+                    if (!isFixed && !showMoving) {
+                        visible = false;
+                    }
+                    if (entity.point) {
+                        entity.point.show = visible;
+                    }
+                    if (entity.label) {
+                        entity.label.show = visible;
+                        // Resetta il testo della label
+                        entity.label.text = "";
+                    }
+                }
+            });
+            
+            viewer.scene.requestRender();
+            
+            if (yearFilter === "all") {
+                // Con "all": raggruppa le entity visibili per punto e mostra una sola label per ogni punto.
+                const seenLabels = {};
+                viewer.entities.values.forEach(entity => {
+                    if (entity.properties && entity.point && entity.point.show) {
+                        const currentLabel = String(entity.properties.originalLabel || entity.properties.label);
+                        if (!seenLabels[currentLabel]) {
+                            entity.label.text = currentLabel;
+                            seenLabels[currentLabel] = true;
+                        }
+                    }
+                });
+            } else {
+                // Filtro per anno specifico: ogni entity visibile mostra la propria label
+                viewer.entities.values.forEach(entity => {
+                    if (entity.properties && entity.point && entity.point.show) {
+                        entity.label.text = String(entity.properties.originalLabel || entity.properties.label);
+                    }
+                });
+            }
+            
+            viewer.scene.requestRender();
+        }
+
+
+        // Aggiorna lo stato del pulsante ogni volta che cambia il dropdown o la checkbox
+        document.getElementById("yearFilter").addEventListener("change", function() {
+            applyFilters();
+            updateDownloadButtonState();
+        });
+        document.getElementById("movingFilter").addEventListener("change", function() {
+            applyFilters();
+            updateDownloadButtonState();
+        });
+        document.getElementById("fixedFilter").addEventListener("change", applyFilters);
+
+        // Popola il dropdown e applica i filtri iniziali
+        populateYearFilter();
+        applyFilters();
+
+        let doc; // Variabile globale per jsPDF
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const { jsPDF } = window.jspdf;
+            doc = new jsPDF();
+
+            // Rimuoviamo il vecchio dropdown per il download, poiché usiamo "yearFilter"
+            // Event listener per il pulsante di download
+            document.getElementById('downloadButton').addEventListener('click', () => {
+                const selectedYear = document.getElementById("yearFilter").value;
+                if (selectedYear && selectedYear !== "all") {
+                    generatePDF(selectedYear);
+                } else {
+                    alert('Please select a specific year!');
+                }
+            });
+        });
+        
+        function captureFilteredMap(selectedYear) {
+            const originalVisibility = new Map();
+            viewer.entities.values.forEach(entity => {
+                if (entity.properties && entity.properties.survey_year !== undefined && entity.properties.is_fixed !== undefined) {
+                    originalVisibility.set(entity.id, entity.show);
+                    const entityYear = Number(entity.properties.survey_year);
+                    const isFixed = Boolean(entity.properties.is_fixed);
+                    const isMoving = !isFixed;
+                    entity.show = (entityYear === Number(selectedYear) && isMoving);
+                }
+            });
+
+            viewer.scene.render();
+            const canvas = viewer.scene.canvas;
+            const mapImage = canvas.toDataURL('image/png');
+
+            viewer.entities.values.forEach(entity => {
+                if (originalVisibility.has(entity.id)) {
+                    entity.show = originalVisibility.get(entity.id);
+                }
+            });
+
+            return mapImage;
+        }
+
+        function generatePDF(year) {
+            console.log("Generating PDF for year:", year);
+            try {
+                const { jsPDF } = window.jspdf;
+                // Crea un nuovo documento A4 in mm
+                const doc = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const marginLeft = 20;
+                const marginRight = 20;
+
+                // ---------------- HEADER ----------------
+                // Imposta il font normale e il colore
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(0, 29, 61); // #001d3d
+                // Posizioniamo il logo e i titoli con maggiore margine dal top.
+                const headerTop = 10; // 20mm dal bordo superiore
+                // Aggiungi il logo Polimi (usa polimiLogoWidth e polimiLogoHeight definite in logo.js)
+                const logoWidth = (typeof polimiLogoWidth !== 'undefined') ? polimiLogoWidth : 40;
+                const logoHeight = (typeof polimiLogoHeight !== 'undefined') ? polimiLogoHeight : 15;
+                if (typeof polimiLogo !== 'undefined' && polimiLogo) {
+                    // Posiziona il logo a 10 mm dal bordo sinistro e a headerTop mm dal bordo superiore
+                    doc.addImage(polimiLogo, 'PNG', 10, headerTop, logoWidth, logoHeight);
+                } else {
+                    console.error("polimiLogo is not defined or empty");
+                }
+
+                // Titoli in due righe (non bold)
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(18);
+                doc.text("BELVEDERE GLACIER", pageWidth / 2, headerTop + logoHeight + 5, { align: 'center' });
+                doc.setFontSize(14);
+                doc.text(`SURVEY REPORT YEAR ${year}`, pageWidth / 2, headerTop + logoHeight + 12, { align: 'center' });
+                // Imposta il punto di inizio per il contenuto successivo (mappa) a circa headerTop+logoHeight+15
+                const headerBottom = headerTop + logoHeight + 15;
+
+                // ---------------- MAPPA ----------------
+                const mapImage = captureFilteredMap(year);
+                if (!mapImage) {
+                    console.error("captureFilteredMap returned an empty string");
+                    return;
+                }
+                // Carica l'immagine in un oggetto Image per ottenere le dimensioni naturali
+                const tempImg = new Image();
+                tempImg.onload = function () {
+                    const naturalWidth = tempImg.naturalWidth;
+                    const naturalHeight = tempImg.naturalHeight;
+                    // Conversione da pixel a mm (assumendo 72 DPI)
+                    const pxToMm = 25.4 / 72;
+                    let naturalWidthMm = naturalWidth * pxToMm;
+                    let naturalHeightMm = naturalHeight * pxToMm;
+                    // Limiti massimi: se l'immagine è troppo grande, riduci mantenendo il rapporto d'aspetto
+                    const maxWidth = pageWidth - marginLeft - marginRight;
+                    const maxHeight = 140; // mm, puoi regolare questo valore
+                    const scale = Math.min(maxWidth / naturalWidthMm, maxHeight / naturalHeightMm, 1);
+                    const finalWidth = naturalWidthMm * scale;
+                    const finalHeight = naturalHeightMm * scale;
+                    const imgX = (pageWidth - finalWidth) / 2;
+                    const imgY = headerBottom + 5; // 5 mm di spazio sotto l'header
+
+                    // Inserisci la mappa nel PDF con le dimensioni finali (preservando il rapporto)
+                    doc.addImage(mapImage, 'PNG', imgX, imgY, finalWidth, finalHeight);
+
+                    // ---------------- CONTOUR BLU ALLA MAPPA ----------------
+                    // Disegna un contorno blu attorno alla mappa
+                    doc.setLineWidth(0.75);
+                    doc.setDrawColor(0, 29, 61);
+                    doc.rect(imgX, imgY, finalWidth, finalHeight);
+
+                    // ---------------- LEGGENDA SOVRAPPOSTA ----------------
+                    // Dimensioni ridotte per la legenda
+                    const legendWidth = 30; // mm
+                    const legendHeight = 15; // mm
+                    const legendX = imgX + 5;
+                    const legendY = imgY + finalHeight - legendHeight - 5;
+                    // Imposta l'opacità al 70% per il background della legenda
+                    if (doc.setGState) {
+                        const gState = new doc.GState({opacity: 0.7});
+                        doc.setGState(gState);
+                    }
+                    // Disegna il rettangolo arrotondato per la legenda con bordo bianco
+                    doc.setFillColor(0, 29, 61); // dark blue
+                    doc.setDrawColor(255, 255, 255);
+                    doc.roundedRect(legendX, legendY, legendWidth, legendHeight, 3, 3, 'FD');
+                    // Ripristina l'opacità a 1
+                    if (doc.setGState) {
+                        const gState = new doc.GState({opacity: 1});
+                        doc.setGState(gState);
+                    }
+                    // Aggiungi il testo della legenda nello stile della web app
+                    doc.setFontSize(8);
+                    doc.setTextColor(255, 255, 255);
+                    doc.text("Legend", legendX + 2, legendY + 4);
+                    let entryY = legendY + 8;
+                    const squareSize = 4;
+                    // Voce 1: Fixed point – colore #FFBA08
+                    doc.setFillColor(255, 186, 8);
+                    doc.rect(legendX + 2, entryY, squareSize, squareSize, 'F');
+                    doc.text("Fixed points", legendX + 2 + squareSize + 2, entryY + squareSize);
+                    entryY += 6;
+                    // Voce 2: Moving point (first survey) – blu
+                    doc.setFillColor(0, 0, 255);
+                    doc.rect(legendX + 2, entryY, squareSize, squareSize, 'F');
+                    doc.text("Moving points (first survey)", legendX + 2 + squareSize + 2, entryY + squareSize);
+                    entryY += 6;
+                    // Voce 3: Moving point (subsequent surveys) – light blue
+                    doc.setFillColor(173, 216, 230);
+                    doc.rect(legendX + 2, entryY, squareSize, squareSize, 'F');
+                    doc.text("Moving points (subsequent surveys)", legendX + 2 + squareSize + 2, entryY + squareSize);
+
+                    // ---------------- TITOLO TABELLA ----------------
+                    // Aggiungi un po' di spazio extra tra la mappa e il titolo della tabella
+                    const tableTitleY = imgY + finalHeight + 15;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(14);
+                    doc.setTextColor(0, 29, 61);
+                    doc.text("Measurement Data", pageWidth / 2, tableTitleY, { align: 'center' });
+
+                    // ---------------- TABELLA ----------------
+                    const tableColumn = ["Point", "East (m)", "North (m)", "H (m)"];
+                    const filteredData = measurementsData.filter(m => m.survey_year == year && !m.is_fixed);
+                    if (filteredData.length === 0) {
+                        alert('No data available for the selected year!');
+                        return;
+                    }
+                    const tableRows = [];
+                    filteredData.forEach(data => {
+                        tableRows.push([
+                            data.label_title,
+                            data.east,
+                            data.north,
+                            data.h
+                        ]);
+                    });
+                    doc.autoTable({
+                        head: [tableColumn],
+                        body: tableRows,
+                        startY: tableTitleY + 5,
+                        margin: { left: marginLeft, right: marginRight },
+                        theme: 'grid',
+                        styles: {
+                            font: "helvetica",
+                            fontSize: 10,
+                            textColor: [0, 29, 61]
+                        },
+                        headStyles: {
+                            fillColor: [0, 29, 61],
+                            textColor: 255,
+                            fontStyle: 'normal'
+                        },
+                        didDrawPage: function (data) {
+                            // Aggiungi il footer con la data di download su ogni pagina
+                            doc.setFontSize(8);
+                            doc.setTextColor(0, 29, 61);
+                            doc.text(`Download Date: ${new Date().toLocaleDateString()}`, marginLeft, pageHeight - 10);
+                            doc.line(marginLeft, pageHeight - 15, pageWidth - marginRight, pageHeight - 15);
+                        }
+                    });
+
+                    // Salva il PDF
+                    doc.save(`Survey_Report_${year}.pdf`);
+                    console.log("PDF generated successfully.");
+                };
+                tempImg.onerror = function () {
+                    console.error("Errore nel caricamento dell'immagine della mappa");
+                };
+                tempImg.src = mapImage;
+            } catch (e) {
+                console.error("Error generating PDF:", e);
+            }
+        }
+        
+        function openUploadWindow() {
+            window.open('/belvedereapp/upload/', '_blank', 'width=600,height=400');
+        }
+
+    </script>    
+</body>
+</html>

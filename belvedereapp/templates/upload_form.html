@@ -1,0 +1,198 @@
+
+<!--
+==============================================================================
+Belvedere Glacier WebGIS - Data Upload Page
+==============================================================================
+
+This HTML file provides an interface for uploading CSV files containing 
+glacier monitoring data. It allows users to submit survey data, which is 
+then processed and stored in the database.
+
+Key Features:
+- File Upload: Users can select a CSV file and upload it to the system.
+- Form Handling: Uses Django's CSRF token to protect against security vulnerabilities.
+- User Feedback: Displays success or error messages after form submission.
+- Responsive Design: Ensures a visually appealing interface with a clean layout.
+- Required Columns: Lists necessary CSV columns for proper data processing.
+
+==============================================================================
+-->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Data - Belvedere Glacier WebGIS</title>
+
+    <!-- Load Google Fonts for better typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- Load Django's static files (for styles, scripts, or images) -->
+    {% load static %}
+
+    <style>
+        /* General page styling */
+        body {
+            background-color: #00172d; /* Dark blue background */
+            font-family: 'Poppins', sans-serif; /* Modern font */
+            display: flex; /* Centers content */
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Full viewport height */
+            margin: 0; /* Remove default margin */
+        }
+
+        /* Container for the upload form */
+        .upload-container {
+            background-color: rgba(0, 29, 61, 0.85); /* Semi-transparent dark blue */
+            padding: 30px;
+            border-radius: 10px; /* Rounded corners */
+            color: white; /* Text color */
+            width: 400px;
+            text-align: center;
+            box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.2); /* Light shadow */
+        }
+
+        /* Title styling */
+        .upload-container h2 {
+            font-size: 22px;
+            margin-bottom: 15px;
+            font-weight: 600; /* Bold */
+        }
+
+        /* File input field */
+        input[type="file"] {
+            display: block;
+            margin: 10px auto;
+            padding: 10px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.2); /* Light transparent background */
+            color: white;
+            font-size: 14px;
+            text-align: center;
+            border: none;
+            outline: none;
+        }
+
+        /* Custom styling for the file upload button */
+        input::file-selector-button {
+            background-color: #ffba08; /* Yellow */
+            color: #00172d; /* Dark blue text */
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s; /* Smooth transition */
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Hover effect for file upload button */
+        input::file-selector-button:hover {
+            background-color: #ff9f00; /* Darker yellow */
+        }
+
+        /* Upload button */
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            background-color: #ffba08; /* Yellow */
+            color: #00172d; /* Dark blue text */
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+            font-size: 16px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Hover effect for the upload button */
+        button:hover {
+            background-color: #ff9f00; /* Darker yellow */
+        }
+
+        /* Styling for Django messages (success or error feedback) */
+        .messages {
+            padding: 10px;
+            list-style: none;
+        }
+
+        .messages li {
+            padding: 5px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        /* Success message styling */
+        .success {
+            background-color: green;
+        }
+
+        /* Error message styling */
+        .error {
+            background-color: red;
+        }
+
+        /* Required columns section title */
+        h3 {
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* Required columns list */
+        ul {
+            text-align: left;
+            padding-left: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Container for the upload form -->
+    <div class="upload-container">
+        <h2>Upload Data</h2>
+
+        <!-- Django messages system (to display success or error messages) -->
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li class="{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <!-- File upload form (POST request with CSRF protection) -->
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %} <!-- Django's CSRF token for security -->
+
+            <!-- File input field -->
+            <label for="csv_file">Select CSV file:</label>
+            <input type="file" name="csv_file" id="csv_file" accept=".csv" required>
+
+            <!-- Upload button -->
+            <button type="submit">Upload</button>
+        </form>
+
+        <!-- Section explaining the required format for the uploaded CSV file -->
+        <h3>( ! ) REQUIRED COLUMNS</h3>
+        <p>Your CSV file must include at least the following columns:</p>
+
+        <ul>
+            <li><b>point</b> (label of the point)</li>
+            <li><b>meas_date</b> (date of the survey, YYYY-mm-DD format)</li>
+            <li><b>east</b> (Easting coordinate)</li>
+            <li><b>north</b> (Northing coordinate)</li>
+            <li><b>h</b> (Elevation/Height)</li>
+            <li><b>lat</b> (Latitude)</li>
+            <li><b>lon</b> (Longitude)</li>
+        </ul>
+    </div>
+
+</body>
+</html>

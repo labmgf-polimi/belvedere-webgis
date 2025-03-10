@@ -1,0 +1,173 @@
+
+<!--
+==============================================================================
+Belvedere Glacier WebGIS - Login Page
+==============================================================================
+
+This HTML file serves as the authentication page for the WebGIS platform. 
+Users must log in before they can access data upload functionalities.
+
+Key Features:
+- Secure Login: Requires username and password for authentication.
+- CSRF Protection: Uses Django’s CSRF token to prevent security attacks.
+- User-Friendly Design: Simple and responsive UI with a clean layout.
+- Error Handling: If authentication fails, messages can be displayed.
+
+==============================================================================
+-->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Belvedere Glacier WebGIS</title>
+
+    <!-- Load Google Fonts for better typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- Load Django's static files (if needed for CSS or JS) -->
+    {% load static %}
+
+    <style>
+        /* General page styling */
+        body {
+            background-color: #00172d; /* Dark blue background */
+            font-family: 'Poppins', sans-serif; /* Modern font */
+            display: flex; /* Centers content */
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Full viewport height */
+            margin: 0; /* Remove default margin */
+        }
+
+        /* Container for the login form */
+        .login-container {
+            background-color: rgba(0, 29, 61, 0.85); /* Semi-transparent dark blue */
+            padding: 30px;
+            border-radius: 10px; /* Rounded corners */
+            color: white; /* Text color */
+            width: 350px;
+            text-align: center;
+            box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.2); /* Light shadow */
+            font-family: 'Poppins', sans-serif; /* Modern font */
+        }
+
+        /* Title styling */
+        .login-container h2 {
+            font-size: 22px;
+            margin-bottom: 15px;
+            font-weight: 600; /* Bold */
+            font-family: 'Poppins', sans-serif; /* Modern font */
+        }
+
+        /* Styling for input fields */
+        .login-container input {
+            font-family: 'Poppins', sans-serif; /* Modern font */
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.2); /* Light transparent background */
+            color: white;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        /* Styling for input placeholders */
+        .login-container input::placeholder {
+            color: #ddd; /* Light grey text */
+            font-family: 'Poppins', sans-serif; /* Modern font */
+        }
+
+        /* Login button */
+        .login-container button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            background-color: #ffba08; /* Yellow */
+            color: #00172d; /* Dark blue text */
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+            font-family: 'Poppins', sans-serif; /* Modern font */
+        }
+
+        /* Hover effect for the login button */
+        .login-container button:hover {
+            background-color: #ff9f00; /* Darker yellow */
+        }
+
+        /* Styling for additional links (forgot password, sign-up, etc.) */
+        .login-container a {
+            color: #ffba08; /* Yellow text */
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        /* Hover effect for links */
+        .login-container a:hover {
+            text-decoration: underline;
+        }
+        /* Message container styles */
+        .messages {
+            padding: 10px;
+            list-style: none;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        /* Success messages */
+        .messages .success {
+            background-color: #28a745; /* Green */
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        /* Error messages */
+        .messages .error {
+            background-color: #dc3545; /* Red */
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Login form container -->
+    <div class="login-container">
+        <h2>Login to Upload Data</h2>
+        <!-- Error message display -->
+
+        {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <p class="{{ message.tags }}">{{ message|safe }}</p>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <!-- Login form (POST request with CSRF protection) -->
+        <form method="post">
+            {% csrf_token %} <!-- Django's CSRF token for security -->
+
+            <!-- Username input field -->
+            <input type="text" name="username" placeholder="Username" required>
+
+            <!-- Password input field -->
+            <input type="password" name="password" placeholder="Password" required>
+
+            <!-- Login button -->
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+</body>
+</html>
